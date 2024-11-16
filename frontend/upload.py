@@ -24,7 +24,7 @@ def checkFiles():
             # Estimate upload time based on file size
             file_size = uploaded_file.size
             estimated_time = file_size / UPLOAD_SPEED
-            # st.write(f"Estimated upload time for {uploaded_file.name}: {estimated_time:.2f} seconds")
+            st.write(f"Estimated upload time for {uploaded_file.name}: {estimated_time:.2f} seconds")
 
             # Create a progress bar for each file
             progress_bar = st.progress(0)
@@ -38,34 +38,7 @@ def checkFiles():
                     progress_text.text(f"{uploaded_file.name}: {i}% completed")
 
             st.success(f"{uploaded_file.name} uploaded successfully!")
-    # if uploaded_file is not None:
-    #     # Display file details
-    #     file_size = uploaded_file.size
-    #     file_details = {
-    #         "Filename": uploaded_file.name,
-    #         "File Type": uploaded_file.type,
-    #         "File Size (KB)": round(file_size / 1024, 2),
-    #         "File Size (MB)": round(file_size / (1024 * 1024), 2),
-    #     }
-    #     st.write("File details:", file_details)
-
-    #     # Estimate the upload time
-    #     estimated_time = file_size / UPLOAD_SPEED  # Time in seconds
-    #     st.write(f"Estimated upload time: {estimated_time:.2f} seconds")
-
-    #     # Create a placeholder for the progress bar
-    #     progress_bar = st.progress(0)
-    #     progress_text = st.empty()
-
-    #     # Simulate a file upload process
-    #     with st.spinner("Processing upload..."):
-    #         for i in range(101):
-    #             # Simulate upload progress based on estimated time
-    #             time.sleep(estimated_time / 100)  # Divide total time by 100 steps
-    #             progress_bar.progress(i)
-    #             progress_text.text(f"Progress: {i}%")
-
-    #     st.success("File uploaded successfully!")
+    
 
 # Title of the app
 st.title("Code File Upload with Estimated Time")
