@@ -4,33 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Upload</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Upload Your File</h1>
-    <form id="uploadForm">
-        <input type="file" id="fileInput" required>
-        <button type="submit">Upload</button>
-    </form>
+    <div class="container">
+        <h1>Upload a File</h1>
+        <form id="upload-form">
+            <input type="file" id="file-input" required>
+            <button type="submit">Upload</button>
+        </form>
+        <p id="status"></p>
+    </div>
+
     <script>
-        document.getElementById('uploadForm').onsubmit = async (e) => {
+        document.getElementById("upload-form").addEventListener("submit", async (e) => {
             e.preventDefault();
-            const file = document.getElementById('fileInput').files[0];
-            if (!file) return alert('Please select a file.');
+            const fileInput = document.getElementById("file-input");
+            const file = fileInput.files[0];
+            if (!file) return alert("Please select a file.");
 
-            // Fetch a signed URL from the backend
-            const response = await fetch('<API_GATEWAY_URL>');
-            const { uploadUrl } = await response.json();
+            const status = document.getElementById("status");
+            status.textContent = "Uploading...";
 
-            // Upload the file directly to S3 using the signed URL
-            await fetch(uploadUrl, {
-                method: 'PUT',
-                headers: { 'Content-Type': file.type },
-                body: file
+            const response = await fetch("https://<bucket-name>.s3.amazonaws.com/" + encodeURIComponent(file.name), {
+                method: "PUT",
+                body: file,
+                headers: {
+                    "Content-Type": file.type,
+                },
             });
 
-            alert('File uploaded successfully!');
-        };
+            if (response.ok) {
+                status.textContent = "Upload successful!";
+            } else {
+                status.textContent = "Upload failed.";
+            }
+        });
     </script>
 </body>
 </html>
