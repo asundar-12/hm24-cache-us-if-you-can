@@ -39,7 +39,7 @@ def split_file(max_character_count=370):
     block_end_pattern = re.compile(r'^END\s?([A-Za-z]+)?[^(LOOP)|(IF)];$')
     
     # Open the large PL/SQL file and read its contents
-    with open(input_file, 'r', encoding='iso-8859-1') as infile:
+    with open(input_file, 'r', encoding='iso-8859-1', errors='ignore') as infile:
         lines = infile.readlines()
 
     # Loop through the lines of the file to process them
