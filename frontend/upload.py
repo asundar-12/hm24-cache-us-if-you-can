@@ -21,7 +21,7 @@ def checkFiles():
             # st.write(f"Processing file {idx + 1}/{len(uploaded_files)}: {uploaded_file.name}")
             st.write(f"Processing file {uploaded_file.name}")
 
-            # Estimate upload time based on file size
+            # Estimate upload time based on `NYn file size
             file_size = uploaded_file.size
             estimated_time = file_size / UPLOAD_SPEED
             st.write(f"Estimated upload time for {uploaded_file.name}: {estimated_time:.2f} seconds")

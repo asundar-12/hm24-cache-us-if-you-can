@@ -1,0 +1,6 @@
+FUNCTION Eval(stilling STILLINGTYPE, Activity SIMPLE_INTEGER,
+              Black BOOLEAN, alpha SIMPLE_INTEGER, beta SIMPLE_INTEGER) RETURN SIMPLE_INTEGER;
+/* evaluates the actual postion using pd and position. */
+/* Is called thousands of times for each engine call! */
+
+END;

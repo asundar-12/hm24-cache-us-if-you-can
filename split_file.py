@@ -35,17 +35,18 @@ def split_file(max_character_count=370):
     # procedure_regex = re.compile(r'^\s*(PROCEDURE)', re.IGNORECASE)
     # function_regex = re.compile(r'^\s*(FUNCTION)', re.IGNORECASE)
     
-    block_start_pattern = re.compile(r'^\s*(BEGIN|PROCEDURE|FUNCTION|PACKAGE)', re.IGNORECASE)
-    block_end_pattern = re.compile(r'^END\s?([A-Za-z]+)?[^(LOOP)|(IF)];$')
-    
+    block_start_pattern = re.compile(r'^\s*(BEGIN|PROCEDURE|FUNCTION|PACKAGE|DROP|CREATE|REPLACE|WRT)', re.IGNORECASE)
+    # block_end_pattern = re.compile(r'^END\s?([A-Za-z]+)?[^(LOOP)|(IF)];$')
+    block_end_pattern = re.compile(r'^\/$|^END(?!(\sLOOP|\sIF|\;|\sCASE|\sKingAdj|\sPieceAdjust|\sSetP|\sInitialize)).*$')
     # Open the large PL/SQL file and read its contents
     with open(input_file, 'r', encoding='iso-8859-1', errors='ignore') as infile:
         lines = infile.readlines()
 
+    print("Number of lines " + str(len(lines)))
     # Loop through the lines of the file to process them
-    for line in lines:
-        print(line)
-        
+    for idx, line in enumerate(lines):
+        # print(line)
+        print(block_start_pattern.match(line))
         if block_start_pattern.match(line):
             in_block = True
         
@@ -53,6 +54,7 @@ def split_file(max_character_count=370):
             block += line
         
         if block_end_pattern.match(line):
+            print("Entered Block End Pattern Statement")
             in_block = False # set in block variable back to false
             code_blocks.append(block) # append current block to file list
             block = "" # reset block string
@@ -63,7 +65,7 @@ def split_file(max_character_count=370):
             print("\nInside write to file")
             # write to the file and do not include the current line
             output_file_path = os.path.join('.', f"{os.path.basename(input_file)}_part_{file_counter}.txt")
-            with open(output_file_path, 'w') as outfile:
+            with open(output_file_path, 'w', encoding='iso-8859-1') as outfile:
                 outfile.writelines(output_file_code)
             output_file_names.append(output_file_path)
             file_counter += 1
@@ -76,7 +78,7 @@ def split_file(max_character_count=370):
     # if we have looped through all of the lines but there are unwritten lines left in the list
     if len(output_file_code) != 0:
         output_file_path = os.path.join('.', f"{os.path.basename(input_file)}_part_{file_counter}.txt")
-        with open(output_file_path, 'w') as outfile:
+        with open(output_file_path, 'w', encoding='iso-8859-1') as outfile:
             outfile.writelines(output_file_code)
         output_file_names.append(output_file_path)    
 
