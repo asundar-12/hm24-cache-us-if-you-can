@@ -5,6 +5,7 @@ import zipfile
 import tempfile
 from botocore.config import Config
 import parso
+from split_file import split_file
 
 # Initialize AWS services
 s3 = boto3.client('s3')
@@ -80,10 +81,10 @@ def write_docs_with_bedrock(input_text):
         return "Translation failed."
 
 
-def extract_code_with_parso(input_file_path):
-    with open(input_file_path, 'r', encoding='utf-8', errors='ignore') as file:
-        content = file.read()
-    print(content)
+def extract_code_with_parso(content):
+    # with open(input_file_path, 'r', encoding='utf-8', errors='ignore') as file:
+    #     content = file.read()
+    # print(content)
     # Parse the translated content using parso
     tree = parso.parse(content)
 
@@ -95,89 +96,95 @@ def extract_code_with_parso(input_file_path):
 
     print(valid_code)
     # Write the valid Python code to the output file
-    with open(input_file_path, 'w', encoding='utf-8', errors='ignore') as file:
-        file.writelines(valid_code[1:])
+    # with open(input_file_path, 'w', encoding='utf-8', errors='ignore') as file:
+    #     file.writelines(valid_code[1:])
     print("WROTE FILE SUCESSFULLY")
+    return "".join(valid_code)
 
 def lambda_handler(event, context):
-    # Get the uploaded file's details from the event
     source_bucket = event['Records'][0]['s3']['bucket']['name']
     source_key = event['Records'][0]['s3']['object']['key']
-    
-    # Define the output bucket
     output_bucket = 'amzn-s3-cuiyc-output-bucket'
-    
+
     try:
-        # Download the zip file from the source bucket
+        # Download the ZIP file
         download_path = os.path.join('/tmp', os.path.basename(source_key))
         s3.download_file(source_bucket, source_key, download_path)
 
-        # Extract the zip file
+        # Extract the ZIP file
         extract_path = tempfile.mkdtemp()
         with zipfile.ZipFile(download_path, 'r') as zip_ref:
             zip_ref.extractall(extract_path)
 
-        # Traverse the extracted files, translate or pass through, and upload results
+        # Initialize containers for concatenated content
+        concatenated_translated_code = ""
+        concatenated_documentation = ""
+
+        # Process each extracted file
         for root, dirs, files in os.walk(extract_path):
             for file_name in files:
-                # Check the file extension
                 file_extension = os.path.splitext(file_name)[1].lower()
                 file_path = os.path.join(root, file_name)
 
-                # Define the output file name and path
-                relative_path = os.path.relpath(file_path, extract_path)
-                dir_name = os.path.dirname(relative_path)
-                processed_file_name = f"translated-{os.path.basename(file_name)}.py"
-                documentation_name = f"documentation-{os.path.basename(file_name)}.txt"
-                docs_relative_path = os.path.join(dir_name, documentation_name) if dir_name else documentation_name
-                processed_relative_path = os.path.join(dir_name, processed_file_name) if dir_name else processed_file_name
-                docs_output_key = f"processed/{docs_relative_path}"
-                output_key = f"processed/{processed_relative_path}"
+                # Only process PL/SQL files
+                if file_extension in ['.pkb','.pks']:
+                    # Step 1: Split the file into smaller parts
+                    if file_extension in ['.pkb']:
+                        split_files = split_file(file_path)
+                    else: 
+                        split_files = [file_path]
 
-                if file_extension in ['.pkb', '.pks']:
-                    # Read the content and translate
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
-                        original_code = file.read()
-                    #TODO: remove comments; split code by functions
-                    translated_code = translate_code_with_bedrock(original_code)
-                    #this block: writing the translated code
-                    # Save the translated code to a temporary file
-                    translated_file_path = os.path.join('/tmp', processed_file_name)
-                    with open(translated_file_path, 'w', encoding='utf-8', errors='ignore') as translated_file:
-                        translated_file.write(translated_code)
-                    
-                    #Calls the helper method for removing the generated comments and non-python code in the translated python file
-                    extract_code_with_parso(translated_file_path)
+                    # Step 2: Translate each part and generate documentation
+                    for split_file_path in split_files:
+                        with open(split_file_path, 'r', encoding='iso-8859-1', errors='ignore') as file:
+                            original_code = file.read()
 
-                    #This block: docs creation
-                    with open(translated_file_path, 'r', encoding='utf-8', errors='ignore') as file_new:
-                        new_code_clean = file_new.read()
-                    
-                    docs = write_docs_with_bedrock(new_code_clean)
-                    docs_file_path = os.path.join('/tmp', documentation_name)
-                    with open(docs_file_path, 'w', encoding='utf-8', errors='ignore') as docs_file:
-                        docs_file.write(docs)
+                        translated_code = translate_code_with_bedrock(original_code)
 
+                        # Append translated code to the concatenated content
+                        concatenated_translated_code += extract_code_with_parso(translated_code) + "\n"
 
+                        # Clean the translated Python code for documentation
+                        # extract_code_with_parso(split_file_path)  # Assuming this step modifies the file directly
 
-                    print("REACHED STATEMENT")
-                    # Upload the translated file
-                    s3.upload_file(translated_file_path, output_bucket, output_key)
-                    s3.upload_file(docs_file_path, output_bucket, docs_output_key)
+                        with open(split_file_path, 'r', encoding='iso-8859-1', errors='ignore') as file_new:
+                            clean_code = file_new.read()
+
+                        documentation = write_docs_with_bedrock(clean_code)
+
+                        # Append documentation to the concatenated content
+                        concatenated_documentation += f"\n# Documentation for {os.path.basename(split_file_path)}\n"
+                        concatenated_documentation += documentation + "\n"
 
                 else:
-                    # Pass through non-source files without changes
-                    s3.upload_file(file_path, output_bucket, output_key)
-        #TODO: Ask llm for unit tests 
-       
+                    # Pass through non-PL/SQL files
+                    pass_through_key = f"processed/{os.path.basename(file_name)}"
+                    s3.upload_file(file_path, output_bucket, pass_through_key)
+
+        # Save the concatenated translated code and documentation as single files
+        concatenated_translated_path = "/tmp/concatenated_translated.py"
+        concatenated_documentation_path = "/tmp/concatenated_documentation.txt"
+
+        with open(concatenated_translated_path, 'w', encoding='iso-8859-1', errors='ignore') as translated_file:
+            translated_file.write(concatenated_translated_code)
+
+        with open(concatenated_documentation_path, 'w', encoding='iso-8859-1', errors='ignore') as docs_file:
+            docs_file.write(concatenated_documentation)
+
+        # Upload the concatenated files to S3
+        translated_key = "processed/concatenated_translated.py"
+        documentation_key = "processed/concatenated_documentation.txt"
+        s3.upload_file(concatenated_translated_path, output_bucket, translated_key)
+        s3.upload_file(concatenated_documentation_path, output_bucket, documentation_key)
+
         return {
             'statusCode': 200,
             'body': json.dumps(f"Files processed and uploaded to {output_bucket}/processed/")
         }
-    
+
     except Exception as e:
-        print(f"Error processing zip file: {e}")
+        print(f"Error processing file: {e}")
         return {
             'statusCode': 500,
-            'body': json.dumps("Error processing zip file.")
+            'body': json.dumps("Error processing file.")
         }
